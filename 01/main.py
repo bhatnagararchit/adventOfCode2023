@@ -82,9 +82,7 @@ def get_calibration_sum(input_file: Path | str, match_type: bool) -> int:
     with open(input_file, "r", encoding="utf-8") as f:
         calibration_sum = 0
         for line in f:
-            calibration_num = get_calibration_number(line,match_type)
-            print(f'{calibration_num} {line}')
-            calibration_sum += calibration_num
+            calibration_sum += get_calibration_number(line,match_type)
     return calibration_sum
 
 
