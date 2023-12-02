@@ -73,6 +73,42 @@ def check_game_possible(game_draws: tuple[tuple[int]], total_cubes: tuple[int]) 
     return True
 
 
+def get_game_possible_min_cubes(game_draws: tuple[tuple[int]]) -> tuple[int]:
+    """
+    Returns the minimum number of cubes of each color required for all draws of a game -- given as
+    game_draws -- to be possible.
+
+    game_draws is expected in the same format that read_game_data outputs -- that is, the nth draw
+    is stored in game_draws[n], with number of cubes of color key_color drawn in the nth draw stored
+    in game_draws[n][CUBE_COLOR_INDICES[key_color]]. min_cubes -- which is returned -- stores the
+    minimum required number of cubes of color key_color in min_cubes[CUBE_COLOR_INDICES[key_color]].
+
+    The minimum number of cubes required for all draws to be possible is the maximum number of cubes
+    observed for each color in the draws. This function calculates the maximum number of cubes, for
+    each color separately, observed in game_draws.
+    """
+    min_cubes = [0 for _ in CUBE_COLOR_INDICES]
+    for game_draw in game_draws:
+        # Given assumption of same structure in game_draws[n] and min_cubes,
+        # no need to call CUBE_COLOR_INDICES
+        for ind, (game_draw_color, min_cubes_color) in enumerate(
+            zip(game_draw, min_cubes)
+        ):
+            if min_cubes_color < game_draw_color:
+                min_cubes[ind] = game_draw_color
+    return min_cubes
+
+
+def get_power(set_cubes: tuple[int]) -> int:
+    """
+    Returns the product of the number of cubes of each color, specified in set_cubes.
+    """
+    power = 1
+    for num in set_cubes:
+        power *= num
+    return power
+
+
 def get_possible_games(input_file: Path | str, total_cubes: tuple[int]) -> int:
     """
     Reads all games from input_file, checks each again the total number of cubes given in
@@ -91,18 +127,41 @@ def get_possible_games(input_file: Path | str, total_cubes: tuple[int]) -> int:
     return possible_game_id_sum
 
 
+def get_power_min_cubes(input_file: Path | str) -> int:
+    """
+    Reads all games from input_file, calculates the minimum set of cubes needed for each game,
+    calculates the power of the minimum set, and returns the sum of these powers.
+    
+    All draws in each game are supposed to be with replacement.
+    """
+    with open(input_file, "r", encoding="utf-8") as f:
+        sum_power_min_cubes = 0
+        for line in f:
+            _, game_draws = read_game_data(line)
+            min_cubes = get_game_possible_min_cubes(game_draws)
+            sum_power_min_cubes += get_power(min_cubes)
+    return sum_power_min_cubes
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AoC 2023 Problem 2")
     parser.add_argument("input_file", help="Input file")
     parser.add_argument(
-        "total_cubes",
+        "--total_cubes",
+        "-tc",
         help=f"Total number of cubes ({''.join([f'{ind_color}th for {color}, ' for color, ind_color in CUBE_COLOR_INDICES.items()])})",
         nargs=len(CUBE_COLOR_INDICES),
         type=int,
     )
     args = parser.parse_args()
 
-    # Print sum of calibration numbers
-    print(
-        f"Sum of game IDs of possible games is: {get_possible_games(Path(args.input_file),args.total_cubes)}"
-    )
+    if args.total_cubes is not None:
+        # Print sum of game IDs of possible games for given total cubes if total cubes is set
+        print(
+            f"Sum of game IDs of possible games is: {get_possible_games(Path(args.input_file),args.total_cubes)}"
+        )
+    else:
+        # Print sum of powers of minimum set of cubes for each game if total cubes is not set
+        print(
+            f"Sum of powers of minimum set of all games is: {get_power_min_cubes(Path(args.input_file))}"
+        )
