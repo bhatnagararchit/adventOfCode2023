@@ -6,7 +6,6 @@ import re
 import argparse
 from pathlib import Path
 import warnings
-from typing import Generator
 from math import inf
 
 
