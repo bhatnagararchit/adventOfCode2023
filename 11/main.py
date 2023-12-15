@@ -24,7 +24,9 @@ def read_map(map_file: Path | str) -> list[list[int, int]]:
     return galaxy_location
 
 
-def expand_galaxy_coords(galaxy_coords: list[list[int, int]]) -> list[list[int, int]]:
+def expand_galaxy_coords(
+    galaxy_coords: list[list[int, int]], expansion: int
+) -> list[list[int, int]]:
     """
     Takes as input galaxy coordinates before expansion, and returns the galaxy coordinates
     after expansion.
@@ -33,6 +35,10 @@ def expand_galaxy_coords(galaxy_coords: list[list[int, int]]) -> list[list[int, 
     is no galaxy in row r or column c, then all galaxies in rows r+1,... or column c+1,...
     are shifted by 1 (i.e., galaxies in rows r+1,... -> r+2,... and same for columns).
     Repeated application of this rule yields the coordinates of the galaxies after expansion.
+
+    Expansion specifies how much each row or column should expand by. If expansion is 0, no
+    expansion occurs. If expansion is n, then each row and column with a galaxy is shifted
+    by n for each empty row or column.
     """
     # Get list of rows and columns where atleast one galaxy is present
     row_present = []
@@ -48,7 +54,10 @@ def expand_galaxy_coords(galaxy_coords: list[list[int, int]]) -> list[list[int, 
         return ind - sum(ind_p < ind for ind_p in ind_present)
 
     new_galaxy_coords = [
-        (row + num_shifts(row, row_present), col + num_shifts(col, col_present))
+        (
+            row + expansion * num_shifts(row, row_present),
+            col + expansion * num_shifts(col, col_present),
+        )
         for row, col in galaxy_coords
     ]
     return new_galaxy_coords
@@ -70,9 +79,21 @@ def pairwise_manhattan_dist(coords: list[int, int]) -> list[int]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AoC 2023 Problem 11")
     parser.add_argument("input_file", help="Input file", type=Path)
+    parser.add_argument(
+        "--expand-num",
+        "-ex",
+        help="""How much does empty row or column expand by. Default is 1,
+        corresponding to a doubling. If EXPAND_NUM is n, then each row or 
+        column would expand by n+1 times.
+        """,
+        type=int,
+        default=1
+    )
     args = parser.parse_args()
 
     user_galaxy_coords = read_map(args.input_file)
-    user_expanded_galaxy_coords = expand_galaxy_coords(user_galaxy_coords)
+    user_expanded_galaxy_coords = expand_galaxy_coords(
+        user_galaxy_coords, args.expand_num
+    )
     user_dists = pairwise_manhattan_dist(user_expanded_galaxy_coords)
     print(f"Sum of pairwise distances between galaxies: {sum(user_dists)}")
