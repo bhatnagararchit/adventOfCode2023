@@ -7,6 +7,8 @@ from pathlib import Path
 import re
 
 PART_NAMES = ["x", "m", "a", "s"]
+MIN_PART_VALUE = {part: 1 for part in PART_NAMES}
+MAX_PART_VALUE = {part: 4000 for part in PART_NAMES}
 
 
 def read_part(part_string: str) -> dict[str, int]:
@@ -62,7 +64,7 @@ def apply_workflow(rules: list[str], part_dict: dict[str, int]) -> str:
     condition that should be followed next. If rule is of the form name, then
     the name is returned directly.
     """
-    for rule in rules:
+    for rule in rules[:-1]:
         try:
             cond, name = rule.split(":")
             part_name, val = re.split(r"\<|\>", cond)
@@ -104,15 +106,98 @@ def sum_part(part_dict: dict[str, int]) -> int:
     return sum(part_dict.values())
 
 
+def get_all_accept_paths(
+    workflows: dict[str, list[str]]
+) -> list[dict[str, list[str] | str]]:
+    """
+    Part 2
+    """
+    for name, rules in workflows.items():
+        for ind, rule in enumerate(rules[:-1]):
+            cond, w_name = rule.split(":")
+            workflows[name][ind] = {"cond": [cond], "name": w_name}
+        workflows[name][-1] = {"cond": [], "name": workflows[name][-1]}
+        for ind, val in enumerate(workflows[name][1:]):
+            val["cond"].extend(
+                [f"!{c}" if c[0] != "!" else c for c in workflows[name][ind]["cond"]]
+            )
+
+    current_workflow = workflows["in"]
+    flag_not_all_ar = True
+    while flag_not_all_ar:
+        flag_not_all_ar = False
+        next_workflow = []
+        for option in current_workflow:
+            if not (option["name"] == "A" or option["name"] == "R"):
+                flag_not_all_ar = True
+                for val in workflows[option["name"]]:
+                    val["cond"] = val["cond"].copy()
+                    val["cond"].extend(option["cond"])
+                    next_workflow.append(val)
+            else:
+                next_workflow.append(option)
+        current_workflow = next_workflow
+
+    return current_workflow
+
+
+def num_per_accept_path(accept_path_cond: list[str]) -> int:
+    """
+    Part 2
+    """
+    part_values = {
+        name: [
+            [True, val] for val in range(MIN_PART_VALUE[name], MAX_PART_VALUE[name] + 1)
+        ]
+        for name in PART_NAMES
+    }
+    for cond in accept_path_cond:
+        part_name, val = re.split(r"\<|\>", cond)
+        val = int(val)
+        if "<" in cond:
+            if "!" in cond:
+                part_values[part_name[1:]] = [
+                    [b and not (pv < val), pv] for b, pv in part_values[part_name[1:]]
+                ]
+            else:
+                part_values[part_name] = [
+                    [b and (pv < val), pv] for b, pv in part_values[part_name]
+                ]
+        else:
+            if "!" in cond:
+                part_values[part_name[1:]] = [
+                    [b and not (pv > val), pv] for b, pv in part_values[part_name[1:]]
+                ]
+            else:
+                part_values[part_name] = [
+                    [b and (pv > val), pv] for b, pv in part_values[part_name]
+                ]
+
+    num_accept_paths = 1
+    for name in PART_NAMES:
+        s = sum(b for b, _ in part_values[name])
+        num_accept_paths *= s
+    return num_accept_paths
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AoC 2023 Problem 16")
     parser.add_argument("input_file", help="Input file", type=Path)
+    parser.add_argument("--all-accept", action="store_true")
     args = parser.parse_args()
 
     user_workflows, user_parts = read_file(args.input_file)
-    user_parts_sum = sum(
-        sum_part(user_part)
-        for user_part in user_parts
-        if apply_workflows(user_workflows, user_part)
-    )
-    print(f"Sum of all ratings of all accepted parts is: {user_parts_sum}")
+    if not args.all_accept:
+        user_parts_sum = sum(
+            sum_part(user_part)
+            for user_part in user_parts
+            if apply_workflows(user_workflows, user_part)
+        )
+        print(f"Sum of all ratings of all accepted parts is: {user_parts_sum}")
+    else:
+        num_paths = sum(
+            num_per_accept_path(accept_path["cond"])
+            for accept_path in get_all_accept_paths(user_workflows)
+            if accept_path["name"] == "A"
+        )
+        print(f"Total number of distinct acceptable combinations: {num_paths}")
